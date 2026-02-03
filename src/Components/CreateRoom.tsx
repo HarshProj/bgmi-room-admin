@@ -28,7 +28,7 @@ export const CreateRoom = () => {
   const [apiError, setApiError] = useState<string | null>(null)
 const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
   
-const backend_url=import.meta.env.VITE_API_URL;
+const backend_url=import.meta.env.VITE_API_URL||"http://localhost:3000";
   useEffect(() => {
     // fetchRooms()
       if (typeof window !== 'undefined' && localStorage.getItem('token') === null) {
@@ -126,11 +126,13 @@ const backend_url=import.meta.env.VITE_API_URL;
     setSuccess(false)
 
     try {
+      
+      const token = localStorage.getItem('token')
       const response = await fetch(`${backend_url}/api/room/create`, { // Replace with your actual API endpoint
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           ...formData,

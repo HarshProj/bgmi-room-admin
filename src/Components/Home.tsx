@@ -1,4 +1,4 @@
-import  { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 
 interface Room {
   _id: string
@@ -14,40 +14,50 @@ interface Room {
   updatedAt: string
 }
 
+interface EditFormData {
+  roomName: string
+  capacity: number
+  roomSlots: number
+  newPassword: string
+  confirmPassword: string
+}
+
 export const Home = () => {
   const [rooms, setRooms] = useState<Room[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [filterStatus, setFilterStatus] = useState<'all' | 'available' | 'full'>('all')
   const [searchQuery, setSearchQuery] = useState('')
-  // const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
+  const [editingRoomId, setEditingRoomId] = useState<string | null>(null)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editFormData, setEditFormData] = useState<EditFormData>({
+    roomName: '',
+    capacity: 0,
+    roomSlots: 0,
+    newPassword: '',
+    confirmPassword: ''
+  })
+  const [passwordError, setPasswordError] = useState<string | null>(null)
 
-  const backend_url=import.meta.env.VITE_API_URL;
+  const backend_url = import.meta.env.VITE_API_URL||"http://localhost:3000"
+
   useEffect(() => {
     fetchRooms()
-      if (typeof window !== 'undefined' && localStorage.getItem('token') === null) {
+    if (typeof window !== 'undefined' && localStorage.getItem('token') === null) {
+      window.location.href = '/login'
+    }
+    const token = localStorage.getItem('token')
+    if (!token) {
+      setTimeout(() => {
         window.location.href = '/login'
-      }
-      const token = localStorage.getItem('token')
-      if (!token) {
-        // Give user feedback before redirecting
-        setTimeout(() => {
-          window.location.href = '/login'
-        }, 1000)
-      }
-      // setIsAuthenticated(!!token)
+      }, 1000)
+    }
   }, [])
-  // if (isAuthenticated === null) {
-  //   return <div>Loading...</div>
-  // }
-  
-  // if (!isAuthenticated) {
-  //   return <div>Redirecting to login...</div>
-  // }
+
   const fetchRooms = async () => {
     try {
       setLoading(true)
-      const response = await fetch(`${backend_url}/api/room/all-rooms`) // Replace with your actual API endpoint
+      const response = await fetch(`${backend_url}/api/room/all-rooms`)
       if (!response.ok) throw new Error('Failed to fetch rooms')
       const data = await response.json()
       setRooms(data)
@@ -56,6 +66,102 @@ export const Home = () => {
       setError(err instanceof Error ? err.message : 'Failed to load rooms')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleDelete = async (roomId: string, roomName: string) => {
+    if (!confirm(`Are you sure you want to delete "${roomName}"?`)) {
+      return
+    }
+
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`${backend_url}/api/room/delete-slot/${roomId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (!response.ok) throw new Error('Failed to delete room')
+
+      setRooms(rooms.filter(room => room._id !== roomId))
+      alert('Room deleted successfully')
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to delete room')
+    }
+  }
+
+  const handleEdit = (room: Room) => {
+    setEditingRoomId(room._id)
+    setEditFormData({
+      roomName: room.roomName,
+      capacity: room.capacity,
+      roomSlots: room.roomSlots,
+      newPassword: '',
+      confirmPassword: ''
+    })
+    setPasswordError(null)
+    setShowEditModal(true)
+  }
+
+  const handleUpdateRoom = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setPasswordError(null)
+
+    // Validate password if user is trying to change it
+    if (editFormData.newPassword || editFormData.confirmPassword) {
+      if (editFormData.newPassword !== editFormData.confirmPassword) {
+        setPasswordError('Passwords do not match')
+        return
+      }
+      if (editFormData.newPassword.length < 4) {
+        setPasswordError('Password must be at least 4 characters long')
+        return
+      }
+    }
+
+    try {
+      const token = localStorage.getItem('token')
+      
+      // Prepare update payload
+      const updatePayload: any = {
+        roomName: editFormData.roomName,
+        capacity: editFormData.capacity,
+        roomSlots: editFormData.roomSlots
+      }
+
+      // Only include password if user entered a new one
+      if (editFormData.newPassword) {
+        updatePayload.password = editFormData.newPassword
+      }
+
+      const response = await fetch(`${backend_url}/api/room/update-slot/${editingRoomId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updatePayload)
+      })
+
+      if (!response.ok) throw new Error('Failed to update room')
+
+      const updatedRoom = await response.json()
+      setRooms(rooms.map(room => room._id === updatedRoom._id ? updatedRoom : room))
+      setShowEditModal(false)
+      setEditingRoomId(null)
+      setEditFormData({
+        roomName: '',
+        capacity: 0,
+        roomSlots: 0,
+        newPassword: '',
+        confirmPassword: ''
+      })
+      alert('Room updated successfully')
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to update room')
     }
   }
 
@@ -295,11 +401,23 @@ export const Home = () => {
                   </div>
 
                   <div className="mt-4 flex gap-2">
-                    <button className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
-                      View Details
+                    <button 
+                      onClick={() => handleEdit(room)}
+                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center justify-center gap-2"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                      Edit
                     </button>
-                    <button className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors text-sm font-medium">
-                      Manage
+                    <button 
+                      onClick={() => handleDelete(room._id, room.roomName)}
+                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium flex items-center justify-center gap-2"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                      Delete
                     </button>
                   </div>
                 </div>
@@ -308,6 +426,146 @@ export const Home = () => {
           </div>
         )}
       </div>
+
+      {/* Edit Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-2xl font-bold text-slate-800">Edit Room</h2>
+              <button
+                onClick={() => {
+                  setShowEditModal(false)
+                  setEditingRoomId(null)
+                  setPasswordError(null)
+                }}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateRoom} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Room Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={editFormData.roomName}
+                  onChange={(e) => setEditFormData({ ...editFormData, roomName: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Capacity <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  value={editFormData.capacity}
+                  onChange={(e) => setEditFormData({ ...editFormData, capacity: parseInt(e.target.value) })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  min="1"
+                  max="100"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Room Slots <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  value={editFormData.roomSlots}
+                  onChange={(e) => setEditFormData({ ...editFormData, roomSlots: parseInt(e.target.value) })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  min="1"
+                  max="25"
+                  required
+                />
+              </div>
+
+              <div className="pt-4 border-t border-slate-200">
+                <h3 className="text-sm font-semibold text-slate-700 mb-3">
+                  Change Password (Optional)
+                </h3>
+                <p className="text-xs text-slate-500 mb-3">
+                  Leave blank to keep the current password
+                </p>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      New Password
+                    </label>
+                    <input
+                      type="password"
+                      value={editFormData.newPassword}
+                      onChange={(e) => {
+                        setEditFormData({ ...editFormData, newPassword: e.target.value })
+                        setPasswordError(null)
+                      }}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Enter new password (optional)"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Confirm New Password
+                    </label>
+                    <input
+                      type="password"
+                      value={editFormData.confirmPassword}
+                      onChange={(e) => {
+                        setEditFormData({ ...editFormData, confirmPassword: e.target.value })
+                        setPasswordError(null)
+                      }}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Confirm new password"
+                    />
+                  </div>
+
+                  {passwordError && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">
+                      <svg className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <p className="text-sm text-red-800">{passwordError}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditModal(false)
+                    setEditingRoomId(null)
+                    setPasswordError(null)
+                  }}
+                  className="flex-1 px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition-colors font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
