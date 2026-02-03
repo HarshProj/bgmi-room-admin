@@ -27,7 +27,7 @@ export const CreateRoom = () => {
   const [success, setSuccess] = useState(false)
   const [apiError, setApiError] = useState<string | null>(null)
 const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
-
+  
   useEffect(() => {
     // fetchRooms()
       if (typeof window !== 'undefined' && localStorage.getItem('token') === null) {

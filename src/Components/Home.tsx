@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import  { useState, useEffect } from 'react'
 
 interface Room {
   _id: string
@@ -20,8 +20,9 @@ export const Home = () => {
   const [error, setError] = useState<string | null>(null)
   const [filterStatus, setFilterStatus] = useState<'all' | 'available' | 'full'>('all')
   const [searchQuery, setSearchQuery] = useState('')
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
+  // const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
 
+  const backend_url=import.meta.env.VITE_API_URL;
   useEffect(() => {
     fetchRooms()
       if (typeof window !== 'undefined' && localStorage.getItem('token') === null) {
@@ -34,7 +35,7 @@ export const Home = () => {
           window.location.href = '/login'
         }, 1000)
       }
-      setIsAuthenticated(!!token)
+      // setIsAuthenticated(!!token)
   }, [])
   // if (isAuthenticated === null) {
   //   return <div>Loading...</div>
@@ -46,7 +47,7 @@ export const Home = () => {
   const fetchRooms = async () => {
     try {
       setLoading(true)
-      const response = await fetch('http://localhost:3000/api/room/all-rooms') // Replace with your actual API endpoint
+      const response = await fetch(`${backend_url}/api/room/all-rooms`) // Replace with your actual API endpoint
       if (!response.ok) throw new Error('Failed to fetch rooms')
       const data = await response.json()
       setRooms(data)

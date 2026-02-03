@@ -25,7 +25,8 @@ export const Login = () => {
   const [apiError, setApiError] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
   const navigate = useNavigate()
-
+  
+  const backend_url=import.meta.env.VITE_API_URL;
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {}
 
@@ -75,7 +76,7 @@ export const Login = () => {
     setApiError(null)
 
     try {
-      const response = await fetch('http://localhost:3000/api/auth/login', { // Replace with your API endpoint
+      const response = await fetch(`${backend_url}/api/auth/login`, { // Replace with your API endpoint
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
